@@ -1,5 +1,6 @@
-package com.cuupa.converter.services.command
+package com.cuupa.converter.services.command.clean
 
+import com.cuupa.converter.services.command.FileFormat
 import com.cuupa.converter.to.Document
 import org.apache.pdfbox.pdmodel.PDDocument
 import org.apache.pdfbox.pdmodel.PDDocumentCatalog
@@ -13,11 +14,15 @@ import org.apache.pdfbox.pdmodel.interactive.form.PDTerminalField
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 
-class PDFCommand(private val document: Document) : Command() {
+class PDFCommand : CleanCommand() {
 
     private val blacklistedFiles = listOf(".exe", ".bat", ".js", ".py", ".app", ".sh", ".dmg")
 
-    override fun execute(): Document {
+    override fun isApplicable(document: Document): Boolean {
+        return isPdf(document)
+    }
+
+    override fun execute(document: Document, fileFormat: FileFormat): Document {
         try {
             PDDocument.load(document.content).use { pdf ->
                 processDocument(pdf)
@@ -96,9 +101,9 @@ class PDFCommand(private val document: Document) : Command() {
 
     private fun processField(field: PDField) {
         if (field is PDTerminalField) {
-            var fieldActions = field.getActions()
+            val fieldActions = field.getActions()
             if (fieldActions != null) {
-                fieldActions = removeJavaScriptActions(fieldActions)
+                removeJavaScriptActions(fieldActions)
             }
             for (widgetAction in field.widgets) {
                 val action = widgetAction.action
@@ -122,5 +127,9 @@ class PDFCommand(private val document: Document) : Command() {
         fieldActions.f = null
         fieldActions.v = null
         return fieldActions
+    }
+
+    private fun isPdf(document: Document): Boolean {
+        return getFileEnding(document.filename).equals("pdf", ignoreCase = true)
     }
 }

@@ -2,8 +2,10 @@ package com.cuupa.converter.to
 
 import java.io.Serializable
 
-data class Document(val filename: String, var content: ByteArray, var encrypted: Boolean) :
+data class Document(var filename: String, var content: ByteArray, var encrypted: Boolean) :
         Serializable {
+
+    constructor() : this("", ByteArray(0), false)
 
     constructor(filename: String, content: ByteArray) : this(filename, content, false)
 

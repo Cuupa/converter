@@ -1,5 +1,6 @@
-package com.cuupa.converter.services.command
+package com.cuupa.converter.services.command.convert
 
+import com.cuupa.converter.services.command.FileFormat
 import com.cuupa.converter.to.Document
 import com.cuupa.converter.to.DocumentBuilder.Companion.create
 import com.cuupa.converter.to.eml.parser.MimeMessageParser.parse
@@ -16,9 +17,13 @@ import java.util.regex.Pattern
 import javax.mail.internet.MimeMessage
 import javax.mail.internet.MimeUtility
 
-class EMLCommand(private val document: Document) : Command() {
+class EMLToPdfCommand : ConvertCommand() {
 
-    override fun execute(): Document {
+    override fun isApplicable(document: Document, fileFormat: FileFormat): Boolean {
+        return getFileEnding(document.filename).equals("eml", ignoreCase = true)
+    }
+
+    override fun execute(document: Document, fileFormat: FileFormat): Document {
         var message: MimeMessage? = null
         ByteArrayInputStream(document.content).use { inputStream -> message = MimeMessage(null, inputStream) }
         val email = parse(message!!)
@@ -31,7 +36,7 @@ class EMLCommand(private val document: Document) : Command() {
         val tmpXhtml = File(document.filename.replace(".eml", ".xhtml"))
         tmpXhtml.parentFile.mkdirs()
         ByteArrayInputStream(htmlBody!!.toByteArray()).use { `in` -> FileOutputStream(tmpXhtml).use { out -> parseDocument(`in`, out) } }
-        val pdfFile = render(tmpXhtml)
+        val pdfFile = render(tmpXhtml, document.filename)
         var cleanedDocument: Document? = null
         FileInputStream(pdfFile).use { `in` ->
             cleanedDocument = create(`in`, pdfFile.name, pdfFile.length().toInt())
@@ -42,8 +47,8 @@ class EMLCommand(private val document: Document) : Command() {
         return cleanedDocument!!
     }
 
-    private fun render(tmpXhtml: File): File {
-        val pdfFile = File(document.filename.replace(".eml", ".pdf"))
+    private fun render(tmpXhtml: File, filename: String): File {
+        val pdfFile = File(filename.replace(".eml", ".pdf"))
         val os: OutputStream = FileOutputStream(pdfFile)
         val renderer = ITextRenderer()
         renderer.setDocument(tmpXhtml)
@@ -85,7 +90,7 @@ class EMLCommand(private val document: Document) : Command() {
             headers += String.format(HEADER_FIELD_TEMPLATE, "Subject",
                     "<b>" + HtmlEscapers.htmlEscaper().escape(subject) + "<b>")
         }
-        if (recipients.size > 0) {
+        if (recipients.isNotEmpty()) {
             headers += String.format(HEADER_FIELD_TEMPLATE, "To",
                     HtmlEscapers.htmlEscaper().escape(Joiner.on(", ").join(recipients)))
         }
@@ -112,7 +117,7 @@ class EMLCommand(private val document: Document) : Command() {
         tidy.forceOutput = true
         tidy.xhtml = true
         //// tidy.setXmlTags(true);
-        tidy.inputEncoding = "UTF-8"
+        tidy.inputEncoding = StandardCharsets.UTF_8.name()
         //		tidy.setOutputEncoding("UTF-8");
         tidy.parseDOM(inputStream, outputStream)
     }
